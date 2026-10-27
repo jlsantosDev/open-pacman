@@ -13,6 +13,9 @@ const OPPOSITE = { left: 'right', right: 'left', up: 'down', down: 'up' };
 const PACMAN_SPEED = 0.125; // 1/8 celda/frame -> alinea cada 8 frames
 const GHOST_SPEED = 0.1;    // 1/10 celda/frame
 
+const PEN_EXIT = { x: 13, y: 11 }; // casilla del pasillo justo encima de la puerta
+const SHY_HOME = { x: 1, y: 29 };  // esquina inferior-izquierda del laberinto
+
 // Crea una partida nueva. Copia MAZE (pristino) a game.grid para poder comer
 // dots sin destruir el original, y reiniciar.
 function createGame() {
@@ -27,6 +30,8 @@ function createGame() {
     state: 'start',
     score: 0,
     lives: 3,
+    // Reloj de la vida actual; se reinicia al perder vida (salida escalonada).
+    lifeFrames: 0,
     dotsRemaining: dots,
     grid,
     pacman: {
@@ -42,6 +47,9 @@ function createGame() {
       dir: 'up',
       speed: GHOST_SPEED,
       kind: g.kind,
+      releaseDelayFrames: g.releaseDelayFrames,
+      // 'pen' (esperando) | 'exiting' (yendo a por la puerta) | 'out' (en juego)
+      state: 'pen',
     } ) ),
   };
 }
@@ -141,14 +149,52 @@ function decideGhost( game, g ) {
   }
 }
 
+// Elige la direccion que minimiza la distancia Manhattan al destino (tx, ty).
+// Misma regla que decideGhost: no media-vuelta salvo callejon sin salida.
+function decideDirToward( grid, g, tx, ty ) {
+  const options = Object.keys( DIRS ).filter(
+    ( dir ) => dir !== OPPOSITE[ g.dir ] && canMove( grid, g.x, g.y, dir, 'ghost' )
+  );
+  const choices = options.length ? options : [ '' + OPPOSITE[ g.dir ] ];
+
+  let best = choices[ 0 ];
+  let bestDist = Infinity;
+  for ( const dir of choices ) {
+    const d = DIRS[ dir ];
+    const dist = Math.abs( g.x + d.x - tx ) + Math.abs( g.y + d.y - ty );
+    if ( dist < bestDist ) {
+      bestDist = dist;
+      best = dir;
+    }
+  }
+  return best;
+}
+
 function moveGhost( game, g ) {
   const grid = game.grid;
   const width = grid[ 0 ].length;
 
+  // En la pen espera sin moverse hasta su turno de salida.
+  if ( g.state === 'pen' ) {
+    if ( game.lifeFrames >= g.releaseDelayFrames ) g.state = 'exiting';
+    return;
+  }
+
   if ( aligned( g.x ) && aligned( g.y ) ) {
     g.x = Math.round( g.x );
     g.y = Math.round( g.y );
-    decideGhost( game, g );
+
+    if ( g.state === 'exiting' ) {
+      // camino a la puerta: en cada celda elige la direccion que minimiza la
+      // distancia Manhattan a PEN_EXIT (la puerta es transitable para fantasmas).
+      if ( g.x === PEN_EXIT.x && g.y === PEN_EXIT.y ) {
+        g.state = 'out';
+        return;
+      }
+      g.dir = decideDirToward( grid, g, PEN_EXIT.x, PEN_EXIT.y );
+    } else {
+      decideGhost( game, g );
+    }
     if ( !canMove( grid, g.x, g.y, g.dir, 'ghost' ) ) return;
   }
 
@@ -164,10 +210,13 @@ function resetPositions( game ) {
   p.y = PACMAN_START.y;
   p.dir = 'left';
   p.nextDir = null;
+  // Nueva vida: la liberacion escalonada se repite desde cero.
+  game.lifeFrames = 0;
   game.ghosts.forEach( ( g, i ) => {
     g.x = GHOST_STARTS[ i ].x;
     g.y = GHOST_STARTS[ i ].y;
     g.dir = 'up';
+    g.state = 'pen';
   } );
 }
 
@@ -176,6 +225,7 @@ function collides( a, b ) {
 }
 
 function update( game ) {
+  game.lifeFrames++;
   movePacman( game );
   game.ghosts.forEach( ( g ) => moveGhost( game, g ) );
 
