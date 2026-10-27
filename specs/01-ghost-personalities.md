@@ -1,6 +1,6 @@
 # SPEC 01 — Cuatro fantasmas con personalidades propias
 
-> **Estado:** Approved
+> **Estado:** Implementado
 > **Depende de:** ninguna
 > **Fecha:** 2026-10-27
 > **Objetivo:** Tener cuatro fantasmas con cuatro comportamientos distintos —uno de ellos persigue agresivamente a Pac-Man— que salen de la pen escalonadamente cada 2 segundos.
