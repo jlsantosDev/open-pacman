@@ -13,6 +13,9 @@ const OPPOSITE = { left: 'right', right: 'left', up: 'down', down: 'up' };
 const PACMAN_SPEED = 0.125; // 1/8 celda/frame -> alinea cada 8 frames
 const GHOST_SPEED = 0.1;    // 1/10 celda/frame
 
+// Velocidad por personalidad: el hunter corre igual que Pacman.
+const GHOST_SPEEDS = { hunter: 0.125 };
+
 const PEN_EXIT = { x: 13, y: 11 }; // casilla del pasillo justo encima de la puerta
 const SHY_HOME = { x: 1, y: 29 };  // esquina inferior-izquierda del laberinto
 
@@ -45,7 +48,7 @@ function createGame() {
       x: g.x,
       y: g.y,
       dir: 'up',
-      speed: GHOST_SPEED,
+      speed: GHOST_SPEEDS[ g.kind ] || GHOST_SPEED,
       kind: g.kind,
       releaseDelayFrames: g.releaseDelayFrames,
       // 'pen' (esperando) | 'exiting' (yendo a por la puerta) | 'out' (en juego)
