@@ -121,35 +121,41 @@ function movePacman( game ) {
   wrapTunnel( p, width );
 }
 
+// Personalidad por kind (fantasma en juego, state 'out'):
+//   hunter: persigue directamente a Pacman (min Manhattan a su celda).
+//   ambush: apunta 4 celdas por delante de Pacman segun su direccion actual.
+//   random: direccion aleatoria entre las validas (sin media-vuelta).
+//   shy:    persigue; si dista menos de 8 celdas huye hacia SHY_HOME.
 function decideGhost( game, g ) {
   const grid = game.grid;
   const p = game.pacman;
+  const px = Math.round( p.x );
+  const py = Math.round( p.y );
 
-  const options = Object.keys( DIRS ).filter(
-    ( dir ) => dir !== OPPOSITE[ g.dir ] && canMove( grid, g.x, g.y, dir, 'ghost' )
-  );
-  // Sin salida (callejon): permitir el giro de 180.
-  const choices = options.length ? options : [ '' + OPPOSITE[ g.dir ] ];
-
-  if ( g.kind === 'hunter' ) {
-    const px = Math.round( p.x );
-    const py = Math.round( p.y );
-    let best = choices[ 0 ];
-    let bestDist = Infinity;
-    for ( const dir of choices ) {
-      const d = DIRS[ dir ];
-      const nx = g.x + d.x;
-      const ny = g.y + d.y;
-      const dist = Math.abs( nx - px ) + Math.abs( ny - py );
-      if ( dist < bestDist ) {
-        bestDist = dist;
-        best = dir;
-      }
-    }
-    g.dir = best;
-  } else {
+  if ( g.kind === 'random' ) {
+    const options = Object.keys( DIRS ).filter(
+      ( dir ) => dir !== OPPOSITE[ g.dir ] && canMove( grid, g.x, g.y, dir, 'ghost' )
+    );
+    // Sin salida (callejon): permitir el giro de 180.
+    const choices = options.length ? options : [ '' + OPPOSITE[ g.dir ] ];
     g.dir = choices[ Math.floor( Math.random() * choices.length ) ];
+    return;
   }
+
+  let tx = px;
+  let ty = py;
+  if ( g.kind === 'ambush' ) {
+    const pd = DIRS[ p.dir ];
+    tx = px + pd.x * 4;
+    ty = py + pd.y * 4;
+  } else if ( g.kind === 'shy' ) {
+    const dist = Math.abs( g.x - px ) + Math.abs( g.y - py );
+    if ( dist < 8 ) {
+      tx = SHY_HOME.x;
+      ty = SHY_HOME.y;
+    }
+  }
+  g.dir = decideDirToward( grid, g, tx, ty );
 }
 
 // Elige la direccion que minimiza la distancia Manhattan al destino (tx, ty).
