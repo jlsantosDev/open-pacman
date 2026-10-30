@@ -67,6 +67,7 @@ function drawDoor( ctx, grid ) {
 }
 
 function drawDots( ctx, grid, lifeFrames ) {
+  ctx.fillStyle = DOT_COLOR;
   // Power pellets (4): parpadeo de ~0.3 s usando lifeFrames como reloj.
   const pelletVisible = Math.floor( lifeFrames / 18 ) % 2 === 0;
   for ( let y = 0; y < grid.length; y++ ) {
