@@ -16,6 +16,13 @@ const GHOST_SPEED = 0.1;    // 1/10 celda/frame
 // Velocidad por personalidad: el hunter corre igual que Pacman.
 const GHOST_SPEEDS = { hunter: 0.125 };
 
+const FRIGHTENED_FRAMES = 360;  // 6 s de modo asustado
+// Media velocidad del modo: mitad de la de Pacman (0.125). Ha de ser 1/n para
+// respetar el invariante de alineacion (decidir una vez por cruce de celda):
+// 1/16 se alinea cada 16 frames, en cada frontera de celda.
+const FRIGHTENED_SPEED  = 0.0625;
+const PELLET_POINTS     = 50;
+
 const PEN_EXIT = { x: 13, y: 11 }; // casilla del pasillo justo encima de la puerta
 const SHY_HOME = { x: 1, y: 29 };  // esquina inferior-izquierda del laberinto
 
@@ -36,6 +43,11 @@ function createGame() {
     // Reloj de la vida actual; se reinicia al perder vida (salida escalonada).
     lifeFrames: 0,
     dotsRemaining: dots,
+    // Modo asustado: timer global en frames; >0 = activo. Un pellet lo
+    // relanza a 360. eatChain lleva los fantasmas comidos con el pellet
+    // actual (0-3) para la cadena 200/400/800/1600.
+    frightenedFrames: 0,
+    eatChain: 0,
     grid,
     pacman: {
       x: PACMAN_START.x,
@@ -55,6 +67,17 @@ function createGame() {
       state: 'pen',
     } ) ),
   };
+}
+
+// Power pellet comido: relanza el modo asustado (6 s), reinicia la cadena de
+// puntos y da media vuelta a los fantasmas en juego. Los de la pen no se
+// tocan: saldran ya asustados si el modo sigue activo (_estado derivado).
+function eatPellet( game ) {
+  game.frightenedFrames = FRIGHTENED_FRAMES;
+  game.eatChain = 0;
+  game.ghosts.forEach( ( g ) => {
+    if ( g.state === 'out' ) g.dir = OPPOSITE[ g.dir ];
+  } );
 }
 
 function aligned( v ) {
@@ -109,8 +132,9 @@ function movePacman( game ) {
     const v = grid[ p.y ][ p.x ];
     if ( v === 2 || v === 4 ) {
       grid[ p.y ][ p.x ] = 0;
-      game.score += v === 4 ? 50 : 10;
+      game.score += v === 4 ? PELLET_POINTS : 10;
       game.dotsRemaining--;
+      if ( v === 4 ) eatPellet( game );
     }
     // Si no puede seguir, se detiene en la celda.
     if ( !canMove( grid, p.x, p.y, p.dir, 'pacman' ) ) return;
@@ -132,6 +156,15 @@ function decideGhost( game, g ) {
   const p = game.pacman;
   const px = Math.round( p.x );
   const py = Math.round( p.y );
+
+  // Modo asustado: huida, personalidades en pausa. Se elige la direccion que
+  // MAXIMIZA la distancia Manhattan a Pacman (variante inversa de la regla
+  // de decideDirToward, con la misma prohibicion de media-vuelta salvo
+  // callejon sin salida).
+  if ( game.frightenedFrames > 0 ) {
+    g.dir = decideDirAway( grid, g, px, py );
+    return;
+  }
 
   if ( g.kind === 'random' ) {
     const options = Object.keys( DIRS ).filter(
@@ -180,6 +213,27 @@ function decideDirToward( grid, g, tx, ty ) {
   return best;
 }
 
+// Elige la direccion que MAXIMIZA la distancia Manhattan al destino (tx, ty).
+// Misma regla que decideDirToward: no media-vuelta salvo callejon sin salida.
+function decideDirAway( grid, g, tx, ty ) {
+  const options = Object.keys( DIRS ).filter(
+    ( dir ) => dir !== OPPOSITE[ g.dir ] && canMove( grid, g.x, g.y, dir, 'ghost' )
+  );
+  const choices = options.length ? options : [ '' + OPPOSITE[ g.dir ] ];
+
+  let best = choices[ 0 ];
+  let bestDist = -Infinity;
+  for ( const dir of choices ) {
+    const d = DIRS[ dir ];
+    const dist = Math.abs( g.x + d.x - tx ) + Math.abs( g.y + d.y - ty );
+    if ( dist > bestDist ) {
+      bestDist = dist;
+      best = dir;
+    }
+  }
+  return best;
+}
+
 function moveGhost( game, g ) {
   const grid = game.grid;
   const width = grid[ 0 ].length;
@@ -199,6 +253,14 @@ function moveGhost( game, g ) {
   if ( aligned( g.x ) && aligned( g.y ) ) {
     g.x = Math.round( g.x );
     g.y = Math.round( g.y );
+
+    // La velocidad solo cambia al estar alineado a una celda: mezclar pasos
+    // de distinto denominador a mitad de tramo rompe el invariante de
+    // alineacion del que dependen decideGhost y canMove (el fantasma acabaria
+    // deslizando por los muros sin poder girar nunca).
+    g.speed = game.frightenedFrames > 0
+      ? FRIGHTENED_SPEED
+      : ( GHOST_SPEEDS[ g.kind ] || GHOST_SPEED );
 
     decideGhost( game, g );
     if ( !canMove( grid, g.x, g.y, g.dir, 'ghost' ) ) return;
@@ -233,6 +295,15 @@ function collides( a, b ) {
 function update( game ) {
   game.lifeFrames++;
   movePacman( game );
+
+  // Timer del modo asustado: se descuenta antes de mover/decidir fantasmas,
+  // de modo que si llega a 0 este frame, ya actuan como normales. La cadena
+  // de puntos se resetea al expirar el modo.
+  if ( game.frightenedFrames > 0 ) {
+    game.frightenedFrames--;
+    if ( game.frightenedFrames === 0 ) game.eatChain = 0;
+  }
+
   game.ghosts.forEach( ( g ) => moveGhost( game, g ) );
 
   for ( const g of game.ghosts ) {
