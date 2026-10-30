@@ -48,6 +48,9 @@ function createGame() {
     // actual (0-3) para la cadena 200/400/800/1600.
     frightenedFrames: 0,
     eatChain: 0,
+    // Numeros flotantes al comer un fantasma asustado: [{ x, y, text, ttl }],
+    // ttl en frames (~1 s). Solo para fantasmas comidos.
+    popups: [],
     grid,
     pacman: {
       x: PACMAN_START.x,
@@ -278,13 +281,16 @@ function resetPositions( game ) {
   p.y = PACMAN_START.y;
   p.dir = 'left';
   p.nextDir = null;
-  // Nueva vida: la liberacion escalonada se repite desde cero.
+  // Nueva vida: la liberacion escalonada se repite desde cero. Con ella los
+  // delays originales: un fantasma comido pudo dejar el suyo modificado
+  // (lifeFrames + 60 tras ser devuelto a la pen).
   game.lifeFrames = 0;
   game.ghosts.forEach( ( g, i ) => {
     g.x = GHOST_STARTS[ i ].x;
     g.y = GHOST_STARTS[ i ].y;
     g.dir = 'up';
     g.state = 'pen';
+    g.releaseDelayFrames = GHOST_STARTS[ i ].releaseDelayFrames;
   } );
 }
 
@@ -306,16 +312,36 @@ function update( game ) {
 
   game.ghosts.forEach( ( g ) => moveGhost( game, g ) );
 
-  for ( const g of game.ghosts ) {
-    if ( collides( game.pacman, g ) ) {
-      game.lives--;
-      if ( game.lives <= 0 ) {
-        game.state = 'lost';
-        return;
-      }
-      resetPositions( game );
-      break;
+  for ( const [ i, g ] of game.ghosts.entries() ) {
+    if ( !collides( game.pacman, g ) ) continue;
+
+    // Fantasma asustado (estado derivado: out + timer activo): se come.
+    // Los de la pen no colisionan con Pacman (no hay camino hasta ahi).
+    // 200 * 2**eatChain da 200/400/800/1600 con eatChain 0-3.
+    if ( g.state === 'out' && game.frightenedFrames > 0 ) {
+      const pts = 200 * 2 ** game.eatChain;
+      game.eatChain++;
+      game.score += pts;
+      game.popups.push( { x: g.x, y: g.y, text: String( pts ), ttl: 60 } );
+      // Vuelta a la pen: teleport a su casilla de GHOST_STARTS y salida
+      // diferida 1 s reutilizando el teleport de SPEC 02 (moveGhost). Si el
+      // modo sigue activo al salir, sale ya asustado (estado derivado).
+      const start = GHOST_STARTS[ i ];
+      g.x = start.x;
+      g.y = start.y;
+      g.dir = 'up';
+      g.state = 'pen';
+      g.releaseDelayFrames = game.lifeFrames + 60;
+      continue;
     }
+
+    game.lives--;
+    if ( game.lives <= 0 ) {
+      game.state = 'lost';
+      return;
+    }
+    resetPositions( game );
+    break;
   }
 
   if ( game.dotsRemaining <= 0 ) game.state = 'won';
