@@ -51,7 +51,7 @@ function createGame() {
       speed: GHOST_SPEEDS[ g.kind ] || GHOST_SPEED,
       kind: g.kind,
       releaseDelayFrames: g.releaseDelayFrames,
-      // 'pen' (esperando) | 'exiting' (yendo a por la puerta) | 'out' (en juego)
+      // 'pen' (esperando) | 'out' (en juego)
       state: 'pen',
     } ) ),
   };
@@ -183,9 +183,15 @@ function moveGhost( game, g ) {
   const grid = game.grid;
   const width = grid[ 0 ].length;
 
-  // En la pen espera sin moverse hasta su turno de salida.
+  // En la pen espera sin moverse hasta su turno. La salida es un teleport al
+  // mapa (SPEC 02): al cumplirse su delay se coloca en PEN_EXIT y pasa a 'out'.
   if ( g.state === 'pen' ) {
-    if ( game.lifeFrames >= g.releaseDelayFrames ) g.state = 'exiting';
+    if ( game.lifeFrames >= g.releaseDelayFrames ) {
+      g.x = PEN_EXIT.x;
+      g.y = PEN_EXIT.y;
+      g.dir = 'left'; // desde la casilla de exit 'up' es muro; decideGhost reelige
+      g.state = 'out';
+    }
     return;
   }
 
@@ -193,17 +199,7 @@ function moveGhost( game, g ) {
     g.x = Math.round( g.x );
     g.y = Math.round( g.y );
 
-    if ( g.state === 'exiting' ) {
-      // camino a la puerta: en cada celda elige la direccion que minimiza la
-      // distancia Manhattan a PEN_EXIT (la puerta es transitable para fantasmas).
-      if ( g.x === PEN_EXIT.x && g.y === PEN_EXIT.y ) {
-        g.state = 'out';
-        return;
-      }
-      g.dir = decideDirToward( grid, g, PEN_EXIT.x, PEN_EXIT.y );
-    } else {
-      decideGhost( game, g );
-    }
+    decideGhost( game, g );
     if ( !canMove( grid, g.x, g.y, g.dir, 'ghost' ) ) return;
   }
 
