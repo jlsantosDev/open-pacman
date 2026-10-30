@@ -1,6 +1,6 @@
 # SPEC 02 — Salida rápida de la pen
 
-> **Estado:** Aprobado
+> **Estado:** Implementado
 > **Depende de:** SPEC 01
 > **Fecha:** 2026-10-30
 > **Objetivo:** Que los cuatro fantasmas salgan de la pen de forma escalonada y rápida —nunca más de 1,5 s de espera— apareciendo directamente en el mapa en la casilla de exit, sin caminar por dentro de la jaula.

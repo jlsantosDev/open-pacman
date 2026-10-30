@@ -1,6 +1,6 @@
 # SPEC 03 — Power pellets y modo asustado
 
-> **Estado:** Aprobado
+> **Estado:** Implementado
 > **Depende de:** SPEC 01, SPEC 02
 > **Fecha:** 2026-10-30
 > **Objetivo:** Que Pac-Man pueda comerse a los fantasmas durante 6 s al coger cada uno de los 4 power pellets del tablero, con fantasmas azules huyendo a media velocidad y cadena de puntuación 200/400/800/1600.

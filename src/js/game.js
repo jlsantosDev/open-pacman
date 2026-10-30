@@ -285,6 +285,11 @@ function resetPositions( game ) {
   // delays originales: un fantasma comido pudo dejar el suyo modificado
   // (lifeFrames + 60 tras ser devuelto a la pen).
   game.lifeFrames = 0;
+  // Regresion SPEC 03: nada residual del modo asustado en la nueva vida
+  // (fantasma azul, cadena de puntos). Con "asustado" derivado del timer una
+  // muerte solo puede ocurrir con el timer a 0, esto es garantia extra.
+  game.frightenedFrames = 0;
+  game.eatChain = 0;
   game.ghosts.forEach( ( g, i ) => {
     g.x = GHOST_STARTS[ i ].x;
     g.y = GHOST_STARTS[ i ].y;
