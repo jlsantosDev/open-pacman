@@ -66,14 +66,17 @@ function drawDoor( ctx, grid ) {
   ctx.stroke();
 }
 
-function drawDots( ctx, grid ) {
+function drawDots( ctx, grid, lifeFrames ) {
   ctx.fillStyle = DOT_COLOR;
+  // Power pellets (4): parpadeo de ~0.3 s usando lifeFrames como reloj.
+  const pelletVisible = Math.floor( lifeFrames / 18 ) % 2 === 0;
   for ( let y = 0; y < grid.length; y++ ) {
     for ( let x = 0; x < grid[ 0 ].length; x++ ) {
-      if ( grid[ y ][ x ] !== 2 ) continue;
+      const v = grid[ y ][ x ];
+      if ( v !== 2 && !( v === 4 && pelletVisible ) ) continue;
       const { cx, cy } = cellCenter( x, y );
       ctx.beginPath();
-      ctx.arc( cx, cy, 2.5, 0, Math.PI * 2 );
+      ctx.arc( cx, cy, v === 4 ? 6 : 2.5, 0, Math.PI * 2 );
       ctx.fill();
     }
   }
@@ -162,6 +165,33 @@ const GHOST_COLORS = {
   shy: '#ffb852',      // naranja
 };
 
+const FRIGHTENED_BLUE  = '#2121de';
+const FRIGHTENED_BLINK = '#f8f8ff';
+
+// Color del fantasma para dibujar. "Asustado" es estado derivado del timer
+// global de game.js (no hay flag por fantasma): azul durante todo el modo y
+// alternando azul/blanco en los 2 s finales (parpadeo cada 8 frames).
+function ghostColor( game, g, kindColor ) {
+  if ( g.state !== 'out' || game.frightenedFrames <= 0 ) return kindColor;
+  const elapsed = FRIGHTENED_FRAMES - game.frightenedFrames;
+  if ( elapsed < FRIGHTENED_FRAMES - 120 ) return FRIGHTENED_BLUE;
+  return Math.floor( elapsed / 8 ) % 2 === 0 ? FRIGHTENED_BLUE : FRIGHTENED_BLINK;
+}
+
+// Numeros flotantes al comer un fantasma asustado (game.popups), en blanco
+// durante su ttl (~1 s); el array lo recorta update en su unico sitio.
+function drawPopups( ctx, popups ) {
+  if ( !popups.length ) return;
+  ctx.fillStyle = '#fff';
+  ctx.font = '12px "Courier New", monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for ( const p of popups ) {
+    const { cx, cy } = cellCenter( Math.round( p.x ), Math.round( p.y ) );
+    ctx.fillText( p.text, cx, cy - 4 );
+  }
+}
+
 function draw( ctx, game, frame ) {
   const grid = game.grid;
   const W = grid[ 0 ].length;
@@ -172,10 +202,11 @@ function draw( ctx, game, frame ) {
 
   drawWalls( ctx, grid );
   drawDoor( ctx, grid );
-  drawDots( ctx, grid );
+  drawDots( ctx, grid, game.lifeFrames );
   drawPacman( ctx, game.pacman, frame );
-  game.ghosts.forEach( ( g ) => drawGhost( ctx, g, GHOST_COLORS[ g.kind ] || '#ff0000', frame ) );
+  game.ghosts.forEach( ( g ) => drawGhost( ctx, g, ghostColor( game, g, GHOST_COLORS[ g.kind ] || '#ff0000' ), frame ) );
   drawHUD( ctx, game, W );
+  drawPopups( ctx, game.popups );
 }
 
 window.draw = draw;
