@@ -300,6 +300,14 @@ function collides( a, b ) {
 
 function update( game ) {
   game.lifeFrames++;
+
+  // Popups flotantes: ttl en frames. Se recorta aqui, en su unico sitio,
+  // por decision del spec (render solo los dibuja).
+  for ( let i = game.popups.length - 1; i >= 0; i-- ) {
+    game.popups[ i ].ttl--;
+    if ( game.popups[ i ].ttl <= 0 ) game.popups.splice( i, 1 );
+  }
+
   movePacman( game );
 
   // Timer del modo asustado: se descuenta antes de mover/decidir fantasmas,
