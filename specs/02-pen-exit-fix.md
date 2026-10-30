@@ -84,6 +84,7 @@ Se mantienen `PEN_EXIT = { x: 13, y: 11 }`, `isWall` con puerta pasable para fan
 - **Sí:** mantener el reset completo tras perder vida (elección explícita del usuario; no se toca `resetPositions` salvo comentarios).
 - **Sí:** `dir` inicial `'left'` tras el teleport: desde (13,11) `up` es muro; el siguiente `decideGhost` lo re-elige al estar alineado, así que cualquier dirección válida vale para arrancar.
 - **No:** tocar velocidades, personalidades, colores ni nada fuera de la máquina de estados del pen (alcance cerrado por el usuario).
+- **Sí:** dejar la puerta pasable para los fantasmas `out` tal cual estaba. En la verificación se observó que `random` puede colarse de nuevo por ella y rondar el interior del pen 1,5-3 s antes de salir solo; se acepta como comportamiento de la personalidad intacta y queda documentado en Risks.
 
 ---
 
@@ -93,6 +94,7 @@ Se mantienen `PEN_EXIT = { x: 13, y: 11 }`, `isWall` con puerta pasable para fan
 | --- | --- |
 | El teleport a (13,11) podría caer sobre Pac-Man si este pasa justo por ahí — muerte instantánea | En el arranque Pac-Man está en (13,23) y tras cada muerte ambos se resetean a sus inicios: hay 12 filas de separación garantizadas. El caso solo podría darse paseando, donde la colisión es legítima de todas formas. |
 | Monitores > 60 Hz comprimen la secuencia escalonada (delays en frames) | Limitación ya documentada en SPEC 01; su arreglo (delta time) es otra spec. |
+| La puerta sigue pasable para fantasmas `out`, así que `random` puede colarse de nuevo por ella y rondar 1,5-3 s dentro del interior del pen antes de salir solo | Limitación de re-entrada aceptada y documentada en la verificación (la salida sigue siendo un salto limpio a `PEN_EXIT`; ninguna personalidad queda bloqueada). Si molesta en juego, impedir la re-entrada es un cambio de 1 línea descrito en la discusión de cierre. |
 
 ---
 
